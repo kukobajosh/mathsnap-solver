@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Solver Snap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col items-center justify-center p-4 selection:bg-indigo-100 selection:text-indigo-700">
+
+    <main class="w-full max-w-md bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ease-in-out">
+        
+        <!-- Header -->
+        <header class="p-6 border-b border-slate-50 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><path d="M14 2v6h6"/><path d="m3 15 2 2 4-4"/></svg>
+                </div>
+                <div>
+                    <h1 class="font-semibold text-lg text-slate-900 tracking-tight">MathSnap</h1>
+                    <p class="text-xs text-slate-500 font-medium">AI Equation Solver</p>
+                </div>
+            </div>
+            <button id="reset-btn" class="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-full hover:bg-slate-50 opacity-0 pointer-events-none" aria-label="Reset">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+            </button>
+        </header>
+
+        <!-- Content Area -->
+        <div class="p-6">
+            
+            <!-- Upload State -->
+            <div id="upload-area" class="group relative w-full aspect-[4/3] rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-indigo-300 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center text-center gap-4 overflow-hidden">
+                <input type="file" id="file-input" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                
+                <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm text-indigo-500 group-hover:scale-110 group-hover:text-indigo-600 transition-all duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-sm font-semibold text-slate-700">Drop image or click to upload</p>
+                    <p class="text-xs text-slate-400">Supports JPG, PNG</p>
+                </div>
+            </div>
+
+            <!-- Preview State (Hidden by default) -->
+            <div id="preview-area" class="hidden relative w-full aspect-[4/3] rounded-2xl bg-slate-900 overflow-hidden shadow-inner">
+                <img id="image-preview" src="" alt="Math problem" class="w-full h-full object-contain opacity-50">
+                
+                <!-- Scanning Overlay -->
+                <div id="scanner-overlay" class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-full h-0.5 bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.8)] absolute top-0 animate-[scan_2s_linear_infinite]"></div>
+                    <div class="text-white font-medium tracking-wide animate-pulse">Analyzing...</div>
+                </div>
+            </div>
+
+            <!-- Result Section (Hidden by default) -->
+            <div id="result-area" class="hidden mt-6 space-y-4">
+                <div class="p-4 rounded-xl bg-indigo-50 border border-indigo-100 space-y-2">
+                    <div class="flex items-center justify-between text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+                        <span>Detected Equation</span>
+                        <span class="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-[10px]">Confidence: <span id="confidence-score">98%</span></span>
+                    </div>
+                    <p id="detected-text" class="text-lg font-mono text-indigo-900 break-all">2x + 5 = 15</p>
+                </div>
+
+                <div class="p-5 rounded-xl bg-slate-900 text-white shadow-xl shadow-slate-200">
+                    <div class="text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Solution</div>
+                    <div id="solution-text" class="text-3xl font-bold tracking-tight text-emerald-400">= 5</div>
+                </div>
+
+                <div class="text-[10px] text-center text-slate-400 pt-2">
+                    AI generated result. Verify important calculations.
+                </div>
+            </div>
+
+            <!-- Error State (Hidden by default) -->
+            <div id="error-area" class="hidden mt-6 p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm text-center">
+                <p id="error-message">Could not read the equation. Please try again with a clearer image.</p>
+            </div>
+
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="p-6 pt-0 flex gap-3">
+            <button id="camera-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                Use Camera
+            </button>
+        </div>
+    </main>
+
+    <style>
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+    </style>
+    <script src="script.js"></script>
+</body>
+</html>
